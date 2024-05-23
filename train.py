@@ -14,13 +14,6 @@ from sampler import data_sampler_CFRL
 from data_loader import get_data_loader_BERT
 from utils import Moment, gen_data
 from encoder import EncodingModel
-import wandb
-wandb.login(
-    anonymous = 'allow',
-    relogin = True,
-    key = '9e33535aa8c9fcaa7fc1dfa97a70d9de5107ad37'
-)
-
 
 
 class Manager(object):
