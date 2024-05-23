@@ -97,7 +97,11 @@ class EncodingModel(nn.Module):
             masks = []
             for i in range(batch_size):
                 ids = inputs['ids'][i].cpu().numpy()
-                mask = np.argwhere(ids == self.config.mask_token_ids)[0][0]
+                try:
+                    mask = np.argwhere(ids == self.config.mask_token_ids)[0][0]
+                except:
+                    mask.append(0)
+                
                 masks.append(mask)
             mask_hidden = outputs_words[tensor_range, torch.tensor(masks)] # (b, h)
             lm_head_output = self.lm_head(mask_hidden) # (b, max_length, vocab_size)

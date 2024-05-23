@@ -9,6 +9,7 @@ from nltk import word_tokenize
 from retry import retry
 import google.generativeai as genai
 
+
 class Moment:
     def __init__(self, config) -> None:
         self.config = config
@@ -145,15 +146,21 @@ def gpt(input, t=0, key=None):
     # )
     # return completion.choices[0].message.content
     time.sleep(1)
-    genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
-    response = model.generate_content(input)
+    # genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
+    generation_config = {
+    "temperature": 0.0,
+    "response_mime_type": "text/plain",
+    }
+    genai.configure(api_key='AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU')
+    model = genai.GenerativeModel('gemini-1.5-pro-latest')
+    response = model.generate_content(input,generation_config=generation_config)
     return response.text
 @retry(tries=10 , delay = 1)
 def gemini(input, t=0,key=None):
     time.sleep(1)
-    genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
+    genai.configure(api_key= 'AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU')
+    model = genai.GenerativeModel('gemini-1.5-pro-latest')
     response = model.generate_content(input)
     return response.text
 
@@ -183,6 +190,7 @@ def parse(rel2id, text):
         t = temp[:i].strip()
         i = temp.find(cons[0])
 
+        r = r.split('\n')[0]
         r = r.replace('**', '')
         r = r.replace('\n','')
         r = r.strip()
@@ -226,7 +234,7 @@ def prompt_input(rname, rdesc, sample=None, n=10):
     input = ''
     if sample == None:
         input = 'One sample in relation extraction datasets consists of a relation, a context, a pair of head and tail entities in the context.The head entity has the relation with the tail entity. Generate ' \
-            + str(n) + ' diversity samples for the relation "'+ rname \
+            + str(n) + ' diversity samples (must have full : Relation , Context , Head Entity , Tail Entity) for the relation "'+ rname \
             + '" which means ' + rdesc \
             + ', and indicate the head entity and tail entity in the following format:\n' \
             + 'Relation: xxx\nContext: xxx\nHead Entity: xxx\nTail Entity: xxx'
@@ -234,7 +242,7 @@ def prompt_input(rname, rdesc, sample=None, n=10):
         input = 'One sample in relation extraction datasets consists of a relation, a context, a pair of head and tail entities in the context.The head entity has the relation with the tail entity.\n' \
             + 'Relation "' + rname + '" means ' + rdesc + '.\nHere is an example:\n' \
             + 'Relation: ' + rname + '\nContext: ' + sample['tokens'] + '\nHead Entity: ' + sample['h'] + '\nTail Entity: ' + sample['t'] + '\n' \
-            + 'Please generate ' + str(n) + ' diversity samples like the above example for the relation "'+ rname + '":'
+            + 'Please generate ' + str(n) + ' diversity samples (must have full : Relation , Context , Head Entity , Tail Entity) like the above example for the relation "'+ rname + '":'
     return pre_input + input
 
 
@@ -246,13 +254,49 @@ def gen_data(r2desc, rel2id, sample, n=10, t=0, key=None):
     print(input)
     output = gpt(input=input, t=t, key=key)
     print(output)
-    parse_output = parse(rel2id, output)
+    try:
+        parse_output = parse(rel2id, output)
+    except:
+        output = gpt(input=input + "\nRelation: ", t=t, key=key)
+        parse_output = parse(rel2id, output)
 
 
     return parse_output
 
 
+if __name__ == "__main__":
+    s = """## Relation: person countries of residence
 
+**Sample 1:**
+
+Context: The renowned author, Salman Rushdie, was born in Bombay, India, and now resides in the United Kingdom. 
+Head Entity: Salman Rushdie
+Tail Entity: United Kingdom
+
+**Sample 2:**
+
+Context: During his visit to Japan, President Biden met with Prime Minister Kishida to discuss economic cooperation.
+Head Entity: President Biden
+Tail Entity: Japan
+
+**Sample 3:**
+
+Context:  After her successful career in Hollywood, actress Angelina Jolie decided to move to Cambodia and dedicate her time to humanitarian work.
+Head Entity: Angelina Jolie
+Tail Entity: Cambodia
+
+**Sample 4:**
+
+Context: The renowned scientist, Albert Einstein, emigrated to the United States in 1933 to escape the Nazi regime in Germany.
+Head Entity: Albert Einstein
+Tail Entity: United States
+
+**Sample 5:**
+
+Context: The musician, Bob Marley, was born in Jamaica and spent most of his life there before moving to Miami, Florida, in the 1970s.
+Head Entity: Bob Marley
+Tail Entity: Jamaica """
+    print(parse(s))
 
 
 
