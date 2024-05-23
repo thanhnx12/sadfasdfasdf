@@ -31,12 +31,12 @@ class EncodingModel(nn.Module):
 
     def infoNCE_f(self, V, C):
         """
-        V : 1 x dim _V
-        C : 1 x dim_C
+        V : B x vocab_size
+        C : B x embedding_dim
         """
         try:
-            out = self.info_nce_fc(V)
-            out = torch.matmul(out , C.t())
+            out = self.info_nce_fc(V) # B x embedding_dim
+            out = torch.matmul(out , C.t()) # B x B
 
         except:
             print("V.shape: ", V.shape)

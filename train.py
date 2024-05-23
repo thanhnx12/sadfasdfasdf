@@ -125,15 +125,24 @@ class Manager(object):
                     positive_lmhead_output = lmhead_output[j].unsqueeze(0)
                     negative_lmhead_output = lmhead_output[negative_sample_indexs]
 
-                    f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
-                    f_neg = encoder.infoNCE_f(negative_lmhead_output, negative_hidden)
+                    # print(positive_hidden.shape)
+                    # print(negative_hidden.shape)
 
-                    f_concat = torch.cat([f_pos, f_neg], dim=0)
+                    # print(positive_lmhead_output.shape)
+                    # print(negative_lmhead_output.shape)
+
+                    f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
+                    f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
+
+                    # print(f_pos.shape)
+                    # print(f_neg.shape)
+                    f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
                     f_concat = torch.log(torch.max(f_concat , torch.tensor(1e-9).to(self.config.device)))
                     infoNCE_loss += -torch.log(softmax(f_concat)[0])
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
-                loss = 0.8*loss + 0.2*infoNCE_loss
+                print(f'infoNCE_loss: {infoNCE_loss} ; loss: {loss}')
+                loss = 0.8*loss + infoNCE_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -207,7 +216,7 @@ class Manager(object):
     def train(self):
         # sampler 
         sampler = data_sampler_CFRL(config=self.config, seed=self.config.seed)
-        self.config.vocab_size = sampler.vocab_size
+        self.config.vocab_size = sampler.config.vocab_size
 
         print('prepared data!')
         self.id2rel = sampler.id2rel
