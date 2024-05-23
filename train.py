@@ -14,7 +14,7 @@ from sampler import data_sampler_CFRL
 from data_loader import get_data_loader_BERT
 from utils import Moment, gen_data
 from encoder import EncodingModel
-
+import wandb
 
 class Manager(object):
     def __init__(self, config) -> None:
@@ -138,10 +138,13 @@ class Manager(object):
                     # print(f_neg.shape)
                     f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
                     f_concat = torch.log(torch.max(f_concat , torch.tensor(1e-9).to(self.config.device)))
-                    infoNCE_loss += -torch.log(softmax(f_concat)[0])
+                    try:
+                        infoNCE_loss += -torch.log(softmax(f_concat)[0])
+                    except:
+                        None
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
-                print(f'infoNCE_loss: {infoNCE_loss} ; loss: {loss}')
+                wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
                 loss = 0.8*loss + infoNCE_loss
 
                 optimizer.zero_grad()
@@ -308,6 +311,15 @@ if __name__ == '__main__':
     config.num_k = args.num_k
     config.num_gen = args.num_gen
 
+    wandb.init(
+    project = 'CPL',
+    name = f"CPL{args.task_name}_{args.num_k}-shot",
+    config = {
+        'name': "CPL",
+        "task" : args.task_name,
+        "shot" : f"{args.num_k}-shot"
+    }
+        )
     # config 
     print('#############params############')
     print(config.device)

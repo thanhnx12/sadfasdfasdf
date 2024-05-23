@@ -183,6 +183,10 @@ def parse(rel2id, text):
         t = temp[:i].strip()
         i = temp.find(cons[0])
 
+        r = r.replace('**', '')
+        r = r.replace('\n','')
+        r = r.strip()
+
         parse_item['relation'] = rel2id[r]
         parse_item['index'] = 0
         tokens = word_tokenize(c.lower())
@@ -218,6 +222,7 @@ def parse(rel2id, text):
     return parse_text
 
 def prompt_input(rname, rdesc, sample=None, n=10):
+    pre_input = 'You are a data scientist working on a relation extraction task. Please do the following task and do not give output in the markdown format.'
     input = ''
     if sample == None:
         input = 'One sample in relation extraction datasets consists of a relation, a context, a pair of head and tail entities in the context.The head entity has the relation with the tail entity. Generate ' \
@@ -230,7 +235,7 @@ def prompt_input(rname, rdesc, sample=None, n=10):
             + 'Relation "' + rname + '" means ' + rdesc + '.\nHere is an example:\n' \
             + 'Relation: ' + rname + '\nContext: ' + sample['tokens'] + '\nHead Entity: ' + sample['h'] + '\nTail Entity: ' + sample['t'] + '\n' \
             + 'Please generate ' + str(n) + ' diversity samples like the above example for the relation "'+ rname + '":'
-    return input
+    return pre_input + input
 
 
 def gen_data(r2desc, rel2id, sample, n=10, t=0, key=None):
