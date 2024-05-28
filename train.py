@@ -123,19 +123,9 @@ class Manager(object):
                     negative_hidden = hidden[negative_sample_indexs]
 
                     positive_lmhead_output = lmhead_output[j].unsqueeze(0)
-                    negative_lmhead_output = lmhead_output[negative_sample_indexs]
-
-                    # print(positive_hidden.shape)
-                    # print(negative_hidden.shape)
-
-                    # print(positive_lmhead_output.shape)
-                    # print(negative_lmhead_output.shape)
 
                     f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
                     f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
-
-                    # print(f_pos.shape)
-                    # print(f_neg.shape)
                     f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
                     f_concat = torch.log(torch.max(f_concat , torch.tensor(1e-9).to(self.config.device)))
                     try:

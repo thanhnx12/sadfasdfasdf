@@ -100,7 +100,7 @@ class EncodingModel(nn.Module):
                 try:
                     mask = np.argwhere(ids == self.config.mask_token_ids)[0][0]
                 except:
-                    mask.append(0)
+                    mask = 0
                 
                 masks.append(mask)
             mask_hidden = outputs_words[tensor_range, torch.tensor(masks)] # (b, h)

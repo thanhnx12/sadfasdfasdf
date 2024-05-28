@@ -145,17 +145,17 @@ def gpt(input, t=0, key=None):
     #     temperature=t
     # )
     # return completion.choices[0].message.content
-    time.sleep(1)
-    # genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
-    genai.configure(api_key='AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU')
+    time.sleep(5)
+    genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
+    #genai.configure(api_key='AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU')
     model = genai.GenerativeModel('gemini-1.5-pro-latest')
     response = model.generate_content(input)
     return response.text
 @retry(tries=10 , delay = 1)
 def gemini(input, t=0,key=None):
-    time.sleep(1)
-    # genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
-    genai.configure(api_key= 'AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU')
+    time.sleep(5)
+    genai.configure(api_key = 'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI' )
+    #genai.configure(api_key= 'AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU')
     model = genai.GenerativeModel('gemini-1.5-pro-latest')
     response = model.generate_content(input)
     return response.text
