@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from sklearn.cluster import KMeans
 from config import Config
+import os
 
 
 from sampler import data_sampler_CFRL
@@ -15,6 +16,11 @@ from data_loader import get_data_loader_BERT
 from utils import Moment, gen_data
 from encoder import EncodingModel
 import wandb
+import pickle as pkl
+
+if os.path.exists('./representation') == False:
+    os.makedirs('./representation')
+
 
 class Manager(object):
     def __init__(self, config) -> None:
@@ -161,12 +167,25 @@ class Manager(object):
         
         corrects = 0.0
         total = 0.0
+        representation_dict = {} # store the representation and the prototype vector of each relation {rel: (proto , [rep1, rep2 ,...])}
+        seen_proto_list = seen_proto.cpu().data.numpy()
+        for i in range(len(seen_proto_list)):
+            representation_dict[i] = {
+                'proto': seen_proto_list[i],
+                'rep': []
+            }
+
         encoder.eval()
         for batch_num, (instance, label, _) in enumerate(test_loader):
             for k in instance.keys():
                 instance[k] = instance[k].to(self.config.device)
             hidden,lmhead_output = encoder(instance)
             fea = hidden.cpu().data # place in cpu to eval
+
+            label_list = label.cpu().data.tolist()
+            for i in range(len(label_list)):
+                representation_dict[label_list[i]]['rep'].append(fea[i].numpy())
+
             logits = -self._edist(fea, seen_proto) # (B, N) ;N is the number of seen relations
 
             cur_index = torch.argmax(logits, dim=1) # (B)
@@ -183,7 +202,7 @@ class Manager(object):
                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
             sys.stdout.flush()        
         print('')
-        return corrects / total
+        return corrects / total , representation_dict
 
     def _get_sample_text(self, data_path, index):
         sample = {}
@@ -277,10 +296,22 @@ class Manager(object):
             seen_relid = []
             for rel in seen_relations:
                 seen_relid.append(self.rel2id[rel])
-            ac1 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_cur)
-            ac2 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_seen)
+            ac1, _ = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_cur)
+            ac2, rep_dict_test = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_seen)
+            # eval on training data and memory data
+            train_and_memory = training_data_initialize[:]
+            for rel in seen_relations:
+                train_and_memory += memory_samples[rel]
+
+            ac3 , rep_dict_train = self.eval_encoder_proto(encoder, seen_proto, seen_relid, train_and_memory)
+            # save representation
+
+            pkl.dump(rep_dict_train, open(f'./representation/{self.config.task_name}_{self.config.num_k}-shot_{step}_train.pkl', 'wb'))
+            pkl.dump(rep_dict_test, open(f'./representation/{self.config.task_name}_{self.config.num_k}-shot_{step}_test.pkl', 'wb'))
+
             cur_acc_num.append(ac1)
             total_acc_num.append(ac2)
+            print("Accuracy on training data and memory data: ", ac3)
             cur_acc.append('{:.4f}'.format(ac1))
             total_acc.append('{:.4f}'.format(ac2))
             print('cur_acc: ', cur_acc)
