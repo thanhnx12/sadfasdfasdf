@@ -103,7 +103,6 @@ class Manager(object):
         return mem_set, mem_feas
         # return mem_set, features, rel_proto
         
-
     def train_model(self, encoder, training_data, is_memory=False):
         data_loader = get_data_loader_BERT(self.config, training_data, shuffle=True)
         optimizer = optim.Adam(params=encoder.parameters(), lr=self.config.lr)
@@ -115,7 +114,7 @@ class Manager(object):
             for batch_num, (instance, labels, ind) in enumerate(data_loader):
                 for k in instance.keys():
                     instance[k] = instance[k].to(self.config.device)
-                hidden,lmhead_output = encoder(instance)
+                hidden, lmhead_output = encoder(instance)
                 loss = self.moment.contrastive_loss(hidden, labels, is_memory)
 
                 # compute infonceloss
@@ -124,7 +123,7 @@ class Manager(object):
 
                 for j in range(len(list_labels)):
                     negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
-                    
+
                     positive_hidden = hidden[j].unsqueeze(0)
                     negative_hidden = hidden[negative_sample_indexs]
 
@@ -133,7 +132,7 @@ class Manager(object):
                     f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
                     f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
                     f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
-                    f_concat = torch.log(torch.max(f_concat , torch.tensor(1e-9).to(self.config.device)))
+                    f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
                     try:
                         infoNCE_loss += -torch.log(softmax(f_concat)[0])
                     except:
@@ -141,7 +140,7 @@ class Manager(object):
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
                 wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
-                loss = 0.8*loss + infoNCE_loss
+                loss = 0.8 * loss + infoNCE_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -155,11 +154,14 @@ class Manager(object):
                     self.moment.update(ind, hidden.detach().cpu().data, is_memory=False)
                 # print
                 if is_memory:
-                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num, loss.item()) + '\r')
+                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                                                                                                      loss.item()) + '\r')
                 else:
-                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num, loss.item()) + '\r')
-                sys.stdout.flush() 
-        print('')             
+                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                                                                                                      loss.item()) + '\r')
+                sys.stdout.flush()
+        print('')
+
 
     def eval_encoder_proto(self, encoder, seen_proto, seen_relid, test_data):
         batch_size = 16
@@ -169,10 +171,11 @@ class Manager(object):
         total = 0.0
         representation_dict = {} # store the representation and the prototype vector of each relation {rel: (proto , [rep1, rep2 ,...])}
         seen_proto_list = seen_proto.cpu().data.numpy()
-        for i in range(len(seen_proto_list)):
-            representation_dict[i] = {
-                'proto': seen_proto_list[i],
-                'rep': []
+
+        for i in range(len(seen_relid)):
+            representation_dict[seen_relid[i]] = {
+                "proto": seen_proto_list[i],
+                "rep": []
             }
 
         encoder.eval()
@@ -306,8 +309,8 @@ class Manager(object):
             ac3 , rep_dict_train = self.eval_encoder_proto(encoder, seen_proto, seen_relid, train_and_memory)
             # save representation
 
-            pkl.dump(rep_dict_train, open(f'./representation/{self.config.task_name}_{self.config.num_k}-shot_{step}_train.pkl', 'wb'))
-            pkl.dump(rep_dict_test, open(f'./representation/{self.config.task_name}_{self.config.num_k}-shot_{step}_test.pkl', 'wb'))
+            pkl.dump(rep_dict_train, open(f'./representation/seed_{str(config.seed)}_{self.config.task_name}_{self.config.num_k}-shot_{step}_train.pkl', 'wb'))
+            pkl.dump(rep_dict_test, open(f'./representation/seed_{str(config.seed)}_{self.config.task_name}_{self.config.num_k}-shot_{step}_test.pkl', 'wb'))
 
             cur_acc_num.append(ac1)
             total_acc_num.append(ac2)
