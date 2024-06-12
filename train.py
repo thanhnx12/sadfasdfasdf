@@ -138,6 +138,10 @@ class Manager(object):
                     loss = 0.8 * loss + infoNCE_loss
                     print(f'[Train loss]: {loss}')
 
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    optimizer.zero_grad()
                     # update moment
                     if is_memory:
                         self.moment.update(ind, hidden.detach().cpu().data, is_memory=True)
