@@ -9,18 +9,18 @@ import torch.optim as optim
 from sklearn.cluster import KMeans
 from config import Config
 
-
 from sampler import data_sampler_CFRL
 from data_loader import get_data_loader_BERT
 from utils import Moment, gen_data
 from encoder import EncodingModel
 import wandb
 
+
 class Manager(object):
     def __init__(self, config) -> None:
         super().__init__()
         self.config = config
-        
+
     def _edist(self, x1, x2):
         '''
         input: x1 (B, H), x2 (N, H) ; N is the number of relations
@@ -28,11 +28,11 @@ class Manager(object):
         '''
         b = x1.size()[0]
         L2dist = nn.PairwiseDistance(p=2)
-        dist = [] # B
+        dist = []  # B
         for i in range(b):
             dist_i = L2dist(x2, x1[i])
-            dist.append(torch.unsqueeze(dist_i, 0)) # (N) --> (1,N)
-        dist = torch.cat(dist, 0) # (B, N)
+            dist.append(torch.unsqueeze(dist_i, 0))  # (N) --> (1,N)
+        dist = torch.cat(dist, 0)  # (B, N)
         return dist
 
     def get_memory_proto(self, encoder, dataset):
@@ -40,19 +40,19 @@ class Manager(object):
         only for one relation data
         '''
         data_loader = get_data_loader_BERT(config, dataset, shuffle=False, \
-            drop_last=False,  batch_size=1) 
+                                           drop_last=False, batch_size=1)
         features = []
         encoder.eval()
         for step, (instance, label, idx) in enumerate(data_loader):
             for k in instance.keys():
                 instance[k] = instance[k].to(self.config.device)
-            hidden,lmhead_output = encoder(instance) 
-            fea = hidden.detach().cpu().data # (1, H)
-            features.append(fea)    
-        features = torch.cat(features, dim=0) # (M, H)
+            hidden, lmhead_output = encoder(instance)
+            fea = hidden.detach().cpu().data  # (1, H)
+            features.append(fea)
+        features = torch.cat(features, dim=0)  # (M, H)
         proto = features.mean(0)
 
-        return proto, features   
+        return proto, features
 
     def select_memory(self, encoder, dataset):
         '''
@@ -60,23 +60,23 @@ class Manager(object):
         '''
         N, M = len(dataset), self.config.memory_size
         data_loader = get_data_loader_BERT(self.config, dataset, shuffle=False, \
-            drop_last= False, batch_size=1) # batch_size must = 1
+                                           drop_last=False, batch_size=1)  # batch_size must = 1
         features = []
         encoder.eval()
         for step, (instance, label, idx) in enumerate(data_loader):
             for k in instance.keys():
                 instance[k] = instance[k].to(self.config.device)
-            hidden,lmhead_output = encoder(instance) 
-            fea = hidden.detach().cpu().data # (1, H)
+            hidden, lmhead_output = encoder(instance)
+            fea = hidden.detach().cpu().data  # (1, H)
             features.append(fea)
 
-        features = np.concatenate(features) # tensor-->numpy array; (N, H)
-        
-        if N <= M: 
+        features = np.concatenate(features)  # tensor-->numpy array; (N, H)
+
+        if N <= M:
             return copy.deepcopy(dataset), torch.from_numpy(features)
 
-        num_clusters = M # memory_size < len(dataset)
-        distances = KMeans(n_clusters=num_clusters, random_state=0).fit_transform(features) # (N, M)
+        num_clusters = M  # memory_size < len(dataset)
+        distances = KMeans(n_clusters=num_clusters, random_state=0).fit_transform(features)  # (N, M)
 
         mem_set = []
         mem_feas = []
@@ -86,17 +86,16 @@ class Manager(object):
             mem_set.append(sample)
             mem_feas.append(features[sel_index])
 
-        mem_feas = np.stack(mem_feas, axis=0) # (M, H)
+        mem_feas = np.stack(mem_feas, axis=0)  # (M, H)
         mem_feas = torch.from_numpy(mem_feas)
         # proto = memory mean
         # rel_proto = mem_feas.mean(0)
         # proto = all mean
-        features = torch.from_numpy(features) # (N, H) tensor
-        rel_proto = features.mean(0) # (H)
+        features = torch.from_numpy(features)  # (N, H) tensor
+        rel_proto = features.mean(0)  # (H)
 
         return mem_set, mem_feas
         # return mem_set, features, rel_proto
-        
 
     def train_model(self, encoder, training_data, is_memory=False):
         data_loader = get_data_loader_BERT(self.config, training_data, shuffle=True)
@@ -109,7 +108,7 @@ class Manager(object):
             for batch_num, (instance, labels, ind) in enumerate(data_loader):
                 for k in instance.keys():
                     instance[k] = instance[k].to(self.config.device)
-                hidden,lmhead_output = encoder(instance)
+                hidden, lmhead_output = encoder(instance)
                 loss = self.moment.contrastive_loss(hidden, labels, is_memory)
 
                 # compute infonceloss
@@ -118,7 +117,7 @@ class Manager(object):
 
                 for j in range(len(list_labels)):
                     negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
-                    
+
                     positive_hidden = hidden[j].unsqueeze(0)
                     negative_hidden = hidden[negative_sample_indexs]
 
@@ -127,7 +126,7 @@ class Manager(object):
                     f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
                     f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
                     f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
-                    f_concat = torch.log(torch.max(f_concat , torch.tensor(1e-9).to(self.config.device)))
+                    f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
                     try:
                         infoNCE_loss += -torch.log(softmax(f_concat)[0])
                     except:
@@ -135,7 +134,8 @@ class Manager(object):
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
                 wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
-                loss = 0.8*loss + infoNCE_loss
+                loss = 0.8 * loss + infoNCE_loss
+                print(f'[Train loss]: {loss}')
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -149,28 +149,61 @@ class Manager(object):
                     self.moment.update(ind, hidden.detach().cpu().data, is_memory=False)
                 # print
                 if is_memory:
-                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num, loss.item()) + '\r')
+                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                                                                                                      loss.item()) + '\r')
                 else:
-                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num, loss.item()) + '\r')
-                sys.stdout.flush() 
-        print('')             
+                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                                                                                                      loss.item()) + '\r')
+                sys.stdout.flush()
+        print('')
 
     def eval_encoder_proto(self, encoder, seen_proto, seen_relid, test_data):
         batch_size = 16
         test_loader = get_data_loader_BERT(self.config, test_data, False, False, batch_size)
-        
+
         corrects = 0.0
         total = 0.0
         encoder.eval()
+        softmax = nn.Softmax(dim=0)
+        total_loss = 0
         for batch_num, (instance, label, _) in enumerate(test_loader):
             for k in instance.keys():
                 instance[k] = instance[k].to(self.config.device)
-            hidden,lmhead_output = encoder(instance)
-            fea = hidden.cpu().data # place in cpu to eval
-            logits = -self._edist(fea, seen_proto) # (B, N) ;N is the number of seen relations
+            hidden, lmhead_output = encoder(instance)
+            loss = self.moment.contrastive_loss(hidden, label, is_memory=False)
+            # compute infonceloss
+            infoNCE_loss = 0
+            list_labels = label.cpu().numpy().tolist()
 
-            cur_index = torch.argmax(logits, dim=1) # (B)
-            pred =  []
+            for j in range(len(list_labels)):
+                negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
+
+                positive_hidden = hidden[j].unsqueeze(0)
+                negative_hidden = hidden[negative_sample_indexs]
+
+                positive_lmhead_output = lmhead_output[j].unsqueeze(0)
+
+                f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
+                f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
+                f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
+                f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
+                try:
+                    infoNCE_loss += -torch.log(softmax(f_concat)[0])
+                except:
+                    None
+
+                infoNCE_loss = infoNCE_loss / len(list_labels)
+                loss = 0.8 * loss + infoNCE_loss
+                total_loss += loss
+
+                print(f'[Test loss]: {loss}')
+            mean_loss = total_loss / len(test_loader)
+
+            fea = hidden.cpu().data  # place in cpu to eval
+            logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
+
+            cur_index = torch.argmax(logits, dim=1)  # (B)
+            pred = []
             for i in range(cur_index.size()[0]):
                 pred.append(seen_relid[int(cur_index[i])])
             pred = torch.tensor(pred)
@@ -179,11 +212,11 @@ class Manager(object):
             acc = correct / batch_size
             corrects += correct
             total += batch_size
-            sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   '\
-                .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
-            sys.stdout.flush()        
+            sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
+                             .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
+            sys.stdout.flush()
         print('')
-        return corrects / total
+        return corrects / total, mean_loss
 
     def _get_sample_text(self, data_path, index):
         sample = {}
@@ -191,7 +224,7 @@ class Manager(object):
             for i, line in enumerate(f):
                 if i == index:
                     items = line.strip().split('\t')
-                    sample['relation'] = self.id2rel[int(items[0])-1]
+                    sample['relation'] = self.id2rel[int(items[0]) - 1]
                     sample['tokens'] = items[2]
                     sample['h'] = items[3]
                     sample['t'] = items[5]
@@ -205,9 +238,8 @@ class Manager(object):
                 rset[items[1]] = items[2]
         return rset
 
-
     def train(self):
-        # sampler 
+        # sampler
         sampler = data_sampler_CFRL(config=self.config, seed=self.config.seed)
         self.config.vocab_size = sampler.config.vocab_size
 
@@ -225,8 +257,8 @@ class Manager(object):
         memory_samples = {}
         data_generation = []
         for step, (training_data, valid_data, test_data, current_relations, \
-            historic_test_data, seen_relations) in enumerate(sampler):
-      
+                   historic_test_data, seen_relations) in enumerate(sampler):
+
             # Initialization
             self.moment = Moment(self.config)
 
@@ -247,22 +279,23 @@ class Manager(object):
                 for rel in current_relations:
                     for sample in memory_samples[rel]:
                         sample_text = self._get_sample_text(self.config.training_data, sample['index'])
-                        gen_samples = gen_data(self.r2desc, self.rel2id, sample_text, self.config.num_gen, self.config.gpt_temp, self.config.key)
+                        gen_samples = gen_data(self.r2desc, self.rel2id, sample_text, self.config.num_gen,
+                                               self.config.gpt_temp, self.config.key)
                         gen_text += gen_samples
                 for sample in gen_text:
                     data_generation.append(sampler.tokenize(sample))
-                    
+
             # Train memory
             if step > 0:
                 memory_data_initialize = []
                 for rel in seen_relations:
                     memory_data_initialize += memory_samples[rel]
                 memory_data_initialize += data_generation
-                self.moment.init_moment(encoder, memory_data_initialize, is_memory=True) 
+                self.moment.init_moment(encoder, memory_data_initialize, is_memory=True)
                 self.train_model(encoder, memory_data_initialize, is_memory=True)
 
             # Update proto
-            seen_proto = []  
+            seen_proto = []
             for rel in seen_relations:
                 proto, _ = self.get_memory_proto(encoder, memory_samples[rel])
                 seen_proto.append(proto)
@@ -277,8 +310,10 @@ class Manager(object):
             seen_relid = []
             for rel in seen_relations:
                 seen_relid.append(self.rel2id[rel])
-            ac1 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_cur)
-            ac2 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_seen)
+            ac1, mean_loss1 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_cur)
+            ac2, mean_loss2 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_seen)
+            print('[Test loss] current task: ', mean_loss1)
+            print('[Test loss] history task: ', mean_loss2)
             cur_acc_num.append(ac1)
             total_acc_num.append(ac2)
             cur_acc.append('{:.4f}'.format(ac1))
@@ -302,15 +337,15 @@ if __name__ == '__main__':
     config.num_gen = args.num_gen
 
     wandb.init(
-    project = 'CPL',
-    name = f"CPL{args.task_name}_{args.num_k}-shot",
-    config = {
-        'name': "CPL",
-        "task" : args.task_name,
-        "shot" : f"{args.num_k}-shot"
-    }
-        )
-    # config 
+        project='CPL',
+        name=f"CPL{args.task_name}_{args.num_k}-shot",
+        config={
+            'name': "CPL",
+            "task": args.task_name,
+            "shot": f"{args.num_k}-shot"
+        }
+    )
+    # config
     print('#############params############')
     print(config.device)
     config.device = torch.device(config.device)
@@ -347,13 +382,13 @@ if __name__ == '__main__':
             config.rel_cluster_label = './data/CFRLTacred/CFRLdata_6_100_5_10/rel_cluster_label_0.npy'
             config.training_data = './data/CFRLTacred/CFRLdata_6_100_5_10/train_0.txt'
             config.valid_data = './data/CFRLTacred/CFRLdata_6_100_5_10/valid_0.txt'
-            config.test_data = './data/CFRLTacred/CFRLdata_6_100_5_10/test_0.txt'        
+            config.test_data = './data/CFRLTacred/CFRLdata_6_100_5_10/test_0.txt'
 
-    # seed 
-    random.seed(config.seed) 
+            # seed
+    random.seed(config.seed)
     np.random.seed(config.seed)
     torch.manual_seed(config.seed)
-    torch.cuda.manual_seed_all(config.seed)   
+    torch.cuda.manual_seed_all(config.seed)
     base_seed = config.seed
 
     acc_list = []
@@ -365,7 +400,7 @@ if __name__ == '__main__':
         acc = manager.train()
         acc_list.append(acc)
         torch.cuda.empty_cache()
-    
+
     accs = np.array(acc_list)
     ave = np.mean(accs, axis=0)
     print('----------END')
@@ -373,9 +408,9 @@ if __name__ == '__main__':
 
 
 
-            
-        
-            
-            
+
+
+
+
 
 
