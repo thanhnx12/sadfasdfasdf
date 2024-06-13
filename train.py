@@ -338,7 +338,7 @@ if __name__ == '__main__':
     config.num_gen = args.num_gen
 
     wandb.init(
-    project = 'CPL',
+    project = 'CPL-log-test-loss',
     name = f"CPL{args.task_name}_{args.num_k}-shot",
     config = {
         'name': "CPL",
