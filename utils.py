@@ -133,8 +133,8 @@ class Moment:
 
 
 api_keys = [
-    'AIzaSyD0XqYHI6UKQDaXLkHfdLh8UnFkGTw5_LI',
-    'AIzaSyDBECQnpdlHjyw0m90b8nMRBsA_oaE0WXU'
+    'AIzaSyAuiYoRyeApWzSv58AWGnDxOsFr_s-NNf4',
+    'AIzaSyDBkQpdIy43ATOLkLKyXEzijAakLH9F88M'
 ]
 from collections import deque
 
