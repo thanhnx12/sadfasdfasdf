@@ -179,8 +179,7 @@ class Manager(object):
             total = 0.0
             encoder.eval()
             softmax = nn.Softmax(dim=0)
-            total_loss = 0
-            total_sample = 0
+            mean_loss = 0
             for batch_num, (instance, label, _) in enumerate(test_loader):
                 for k in instance.keys():
                     instance[k] = instance[k].to(self.config.device)
@@ -211,8 +210,7 @@ class Manager(object):
                 # if not torch.isnan(infoNCE_loss):
                 #     loss = 0.8 * loss + infoNCE_loss
                 if not torch.isnan(torch.tensor(loss)):
-                    total_sample += batch_size
-                    total_loss += loss
+                    mean_loss += loss / batch_size
                     print(f'[Test loss]: {loss}')
 
                 fea = hidden.cpu().data  # place in cpu to eval
@@ -233,8 +231,8 @@ class Manager(object):
                 #                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
                 # sys.stdout.flush()
             print('')
-            mean_loss = total_loss / total_sample
-
+            number_of_batch = len(test_loader)
+            mean_loss = mean_loss / number_of_batch
             return corrects / total, mean_loss
 
     def _get_sample_text(self, data_path, index):
