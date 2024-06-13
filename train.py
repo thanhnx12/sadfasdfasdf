@@ -103,7 +103,7 @@ class Manager(object):
         encoder.train()
         epoch = self.config.epoch_mem if is_memory else self.config.epoch
         softmax = nn.Softmax(dim=0)
-        total_loss = 0
+        mean_train_loss = 0 # mean loss per each batch
         for i in range(epoch):
             for batch_num, (instance, labels, ind) in enumerate(data_loader):
                 for k in instance.keys():
@@ -136,7 +136,9 @@ class Manager(object):
                 wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
                 if not math.isnan(infoNCE_loss):
                     loss = 0.8 * loss + infoNCE_loss
-                total_loss += loss
+                if not torch.isnan(loss):
+                    mean_train_loss += loss 
+
                 print(f'[Train loss]: {loss}')
 
                 optimizer.zero_grad()
@@ -162,11 +164,11 @@ class Manager(object):
                 #                                                                                     loss.item()) + '\r')
                 # sys.stdout.flush()
         print('')
-        mean_loss = total_loss / len(data_loader)
+        mean_train_loss = mean_train_loss / len(data_loader)
         if is_memory:
-            print('[Memory mean train loss]: ', mean_loss)
+            print('[Memory mean train loss]: ', mean_train_loss)
         else:
-            print('[Current mean train loss]: ', mean_loss)
+            print('[Current mean train loss]: ', mean_train_loss)
 
     def eval_encoder_proto(self, encoder, seen_proto, seen_relid, test_data):
         with torch.no_grad():
@@ -177,9 +179,10 @@ class Manager(object):
             total = 0.0
             encoder.eval()
             softmax = nn.Softmax(dim=0)
-            total_loss = 0
-            total_sample = 0
+            mean_loss = 0
+            n_batch = 0
             for batch_num, (instance, label, _) in enumerate(test_loader):
+                n_batch += 1
                 for k in instance.keys():
                     instance[k] = instance[k].to(self.config.device)
                 hidden, lmhead_output = encoder(instance)
@@ -209,9 +212,9 @@ class Manager(object):
                 if not math.isnan(infoNCE_loss):
                     loss = 0.8 * loss + infoNCE_loss
                 if not torch.isnan(loss):
-                    total_sample += batch_size
-                    total_loss += loss
+                    mean_loss += loss
                     print(f'[Test loss]: {loss}')
+                    print(f'[Test loss mean per batch] ' , mean_loss / n_batch)
 
                 fea = hidden.cpu().data  # place in cpu to eval
                 logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
@@ -231,7 +234,7 @@ class Manager(object):
                 #                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
                 # sys.stdout.flush()
             print('')
-            mean_loss = total_loss / total_sample
+            mean_loss = mean_loss / len(test_loader)
 
             return corrects / total, mean_loss
 
