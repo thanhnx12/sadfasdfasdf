@@ -106,56 +106,59 @@ class Manager(object):
 
         for i in range(epoch):
             for batch_num, (instance, labels, ind) in enumerate(data_loader):
-                with torch.no_grad():
-                    for k in instance.keys():
-                        instance[k] = instance[k].to(self.config.device)
-                    hidden, lmhead_output = encoder(instance)
-                    loss = self.moment.contrastive_loss(hidden, labels, is_memory)
+                for k in instance.keys():
+                    instance[k] = instance[k].to(self.config.device)
+                hidden, lmhead_output = encoder(instance)
+                loss = self.moment.contrastive_loss(hidden, labels, is_memory)
 
-                    # compute infonceloss
-                    infoNCE_loss = 0
-                    list_labels = labels.cpu().numpy().tolist()
+                # compute infonceloss
+                infoNCE_loss = 0
+                list_labels = labels.cpu().numpy().tolist()
 
-                    for j in range(len(list_labels)):
-                        negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
+                for j in range(len(list_labels)):
+                    negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
 
-                        positive_hidden = hidden[j].unsqueeze(0)
-                        negative_hidden = hidden[negative_sample_indexs]
+                    positive_hidden = hidden[j].unsqueeze(0)
+                    negative_hidden = hidden[negative_sample_indexs]
 
-                        positive_lmhead_output = lmhead_output[j].unsqueeze(0)
+                    positive_lmhead_output = lmhead_output[j].unsqueeze(0)
 
-                        f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
-                        f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
-                        f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
-                        f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
-                        try:
-                            infoNCE_loss += -torch.log(softmax(f_concat)[0])
-                        except:
-                            None
+                    f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
+                    f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
+                    f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
+                    f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
+                    try:
+                        infoNCE_loss += -torch.log(softmax(f_concat)[0])
+                    except:
+                        None
 
-                    infoNCE_loss = infoNCE_loss / len(list_labels)
-                    wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
-                    loss = 0.8 * loss + infoNCE_loss
-                    print(f'[Train loss]: {loss}')
+                infoNCE_loss = infoNCE_loss / len(list_labels)
+                wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
+                loss = 0.8 * loss + infoNCE_loss
+                print(f'[Train loss]: {loss}')
 
-                    optimizer.zero_grad()
+                optimizer.zero_grad()
+                try:
                     loss.backward()
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    # update moment
-                    if is_memory:
-                        self.moment.update(ind, hidden.detach().cpu().data, is_memory=True)
-                        # self.moment.update_allmem(encoder)
-                    else:
-                        self.moment.update(ind, hidden.detach().cpu().data, is_memory=False)
-                    # print
-                    if is_memory:
-                        sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
-                                                                                                        loss.item()) + '\r')
-                    else:
-                        sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
-                                                                                                        loss.item()) + '\r')
-                    sys.stdout.flush()
+                except:
+                    print('loss backward error')
+                    continue
+                optimizer.step()
+                optimizer.zero_grad()
+                # update moment
+                if is_memory:
+                    self.moment.update(ind, hidden.detach().cpu().data, is_memory=True)
+                    # self.moment.update_allmem(encoder)
+                else:
+                    self.moment.update(ind, hidden.detach().cpu().data, is_memory=False)
+                # print
+                if is_memory:
+                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                                                                                                    loss.item()) + '\r')
+                else:
+                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                                                                                                    loss.item()) + '\r')
+                # sys.stdout.flush()
         print('')
 
     def eval_encoder_proto(self, encoder, seen_proto, seen_relid, test_data):
@@ -216,7 +219,7 @@ class Manager(object):
                 total += batch_size
                 sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
                                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
-                sys.stdout.flush()
+                # sys.stdout.flush()
             print('')
             return corrects / total, mean_loss
 
