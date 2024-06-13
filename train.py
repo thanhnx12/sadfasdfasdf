@@ -103,7 +103,7 @@ class Manager(object):
         encoder.train()
         epoch = self.config.epoch_mem if is_memory else self.config.epoch
         softmax = nn.Softmax(dim=0)
-
+        total_loss = 0
         for i in range(epoch):
             for batch_num, (instance, labels, ind) in enumerate(data_loader):
                 for k in instance.keys():
@@ -134,7 +134,9 @@ class Manager(object):
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
                 wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
-                loss = 0.8 * loss + infoNCE_loss
+                if not torch.isnan(infoNCE_loss):
+                    loss = 0.8 * loss + infoNCE_loss
+                total_loss += loss
                 print(f'[Train loss]: {loss}')
 
                 optimizer.zero_grad()
@@ -160,6 +162,11 @@ class Manager(object):
                 #                                                                                     loss.item()) + '\r')
                 # sys.stdout.flush()
         print('')
+        mean_loss = total_loss / len(data_loader)
+        if is_memory:
+            print('[Memory mean train loss]: ', mean_loss)
+        else:
+            print('[Current mean train loss]: ', mean_loss)
 
     def eval_encoder_proto(self, encoder, seen_proto, seen_relid, test_data):
         with torch.no_grad():
@@ -198,7 +205,8 @@ class Manager(object):
                         None
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
-                loss = 0.8 * loss + infoNCE_loss
+                if not torch.isnan(infoNCE_loss):
+                    loss = 0.8 * loss + infoNCE_loss
                 total_loss += loss
 
                 print(f'[Test loss]: {loss}')
