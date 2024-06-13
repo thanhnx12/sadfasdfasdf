@@ -152,12 +152,12 @@ class Manager(object):
                 else:
                     self.moment.update(ind, hidden.detach().cpu().data, is_memory=False)
                 # print
-                if is_memory:
-                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
-                                                                                                    loss.item()) + '\r')
-                else:
-                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
-                                                                                                    loss.item()) + '\r')
+                # if is_memory:
+                #     sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                #                                                                                     loss.item()) + '\r')
+                # else:
+                #     sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                #                                                                                     loss.item()) + '\r')
                 # sys.stdout.flush()
         print('')
 
@@ -217,8 +217,8 @@ class Manager(object):
                 corrects += correct
                 total += batch_size
                 print('')
-                sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
-                                .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
+                # sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
+                #                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
                 # sys.stdout.flush()
             print('')
             mean_loss = total_loss / len(test_loader)
