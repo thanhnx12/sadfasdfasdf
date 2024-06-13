@@ -152,12 +152,12 @@ class Manager(object):
                 else:
                     self.moment.update(ind, hidden.detach().cpu().data, is_memory=False)
                 # print
-                if is_memory:
-                    sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
-                                                                                                    loss.item()) + '\r')
-                else:
-                    sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
-                                                                                                    loss.item()) + '\r')
+                # if is_memory:
+                #     sys.stdout.write('MemoryTrain:  epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                #                                                                                     loss.item()) + '\r')
+                # else:
+                #     sys.stdout.write('CurrentTrain: epoch {0:2}, batch {1:5} | loss: {2:2.7f}'.format(i, batch_num,
+                #                                                                                     loss.item()) + '\r')
                 # sys.stdout.flush()
         print('')
 
@@ -202,23 +202,24 @@ class Manager(object):
                 total_loss += loss
 
                 print(f'[Test loss]: {loss}')
+
+                fea = hidden.cpu().data  # place in cpu to eval
+                logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
+
+                cur_index = torch.argmax(logits, dim=1)  # (B)
+                pred = []
+                for i in range(cur_index.size()[0]):
+                    pred.append(seen_relid[int(cur_index[i])])
+                pred = torch.tensor(pred)
+
+                correct = torch.eq(pred, label).sum().item()
+                acc = correct / batch_size
+                corrects += correct
+                total += batch_size
             mean_loss = total_loss / len(test_loader)
 
-            fea = hidden.cpu().data  # place in cpu to eval
-            logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
-
-            cur_index = torch.argmax(logits, dim=1)  # (B)
-            pred = []
-            for i in range(cur_index.size()[0]):
-                pred.append(seen_relid[int(cur_index[i])])
-            pred = torch.tensor(pred)
-
-            correct = torch.eq(pred, label).sum().item()
-            acc = correct / batch_size
-            corrects += correct
-            total += batch_size
-            sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
-                            .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
+            # sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
+            #                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
             # sys.stdout.flush()
         print('')
         return corrects / total, mean_loss
