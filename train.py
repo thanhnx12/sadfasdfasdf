@@ -112,29 +112,29 @@ class Manager(object):
                 loss = self.moment.contrastive_loss(hidden, labels, is_memory)
 
                 # compute infonceloss
-                infoNCE_loss = 0
-                list_labels = labels.cpu().numpy().tolist()
+                # infoNCE_loss = 0
+                # list_labels = labels.cpu().numpy().tolist()
 
-                for j in range(len(list_labels)):
-                    negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
+                # for j in range(len(list_labels)):
+                #     negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
 
-                    positive_hidden = hidden[j].unsqueeze(0)
-                    negative_hidden = hidden[negative_sample_indexs]
+                #     positive_hidden = hidden[j].unsqueeze(0)
+                #     negative_hidden = hidden[negative_sample_indexs]
 
-                    positive_lmhead_output = lmhead_output[j].unsqueeze(0)
+                #     positive_lmhead_output = lmhead_output[j].unsqueeze(0)
 
-                    f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
-                    f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
-                    f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
-                    f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
-                    try:
-                        infoNCE_loss += -torch.log(softmax(f_concat)[0])
-                    except:
-                        None
+                #     f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
+                #     f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
+                #     f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
+                #     f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
+                #     try:
+                #         infoNCE_loss += -torch.log(softmax(f_concat)[0])
+                #     except:
+                #         None
 
-                infoNCE_loss = infoNCE_loss / len(list_labels)
-                wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
-                loss = 0.8 * loss + infoNCE_loss
+                # infoNCE_loss = infoNCE_loss / len(list_labels)
+                # wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
+                # loss = 0.8 * loss + infoNCE_loss
                 print(f'[Train loss]: {loss}')
 
                 optimizer.zero_grad()
@@ -177,51 +177,51 @@ class Manager(object):
                 hidden, lmhead_output = encoder(instance)
                 loss = self.moment.contrastive_loss(hidden, label, is_memory=False)
                 # compute infonceloss
-                infoNCE_loss = 0
-                list_labels = label.cpu().numpy().tolist()
+                # infoNCE_loss = 0
+                # list_labels = label.cpu().numpy().tolist()
 
-                for j in range(len(list_labels)):
-                    negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
+                # for j in range(len(list_labels)):
+                #     negative_sample_indexs = np.where(np.array(list_labels) != list_labels[j])[0]
 
-                    positive_hidden = hidden[j].unsqueeze(0)
-                    negative_hidden = hidden[negative_sample_indexs]
+                #     positive_hidden = hidden[j].unsqueeze(0)
+                #     negative_hidden = hidden[negative_sample_indexs]
 
-                    positive_lmhead_output = lmhead_output[j].unsqueeze(0)
+                #     positive_lmhead_output = lmhead_output[j].unsqueeze(0)
 
-                    f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
-                    f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
-                    f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
-                    f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
-                    try:
-                        infoNCE_loss += -torch.log(softmax(f_concat)[0])
-                    except:
-                        None
+                #     f_pos = encoder.infoNCE_f(positive_lmhead_output, positive_hidden)
+                #     f_neg = encoder.infoNCE_f(positive_lmhead_output, negative_hidden)
+                #     f_concat = torch.cat([f_pos, f_neg], dim=1).squeeze()
+                #     f_concat = torch.log(torch.max(f_concat, torch.tensor(1e-9).to(self.config.device)))
+                #     try:
+                #         infoNCE_loss += -torch.log(softmax(f_concat)[0])
+                #     except:
+                #         None
 
-                    infoNCE_loss = infoNCE_loss / len(list_labels)
-                    loss = 0.8 * loss + infoNCE_loss
-                    total_loss += loss
+                #     infoNCE_loss = infoNCE_loss / len(list_labels)
+                #     loss = 0.8 * loss + infoNCE_loss
+                total_loss += loss
 
-                    print(f'[Test loss]: {loss}')
-                mean_loss = total_loss / len(test_loader)
+                print(f'[Test loss]: {loss}')
+            mean_loss = total_loss / len(test_loader)
 
-                fea = hidden.cpu().data  # place in cpu to eval
-                logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
+            fea = hidden.cpu().data  # place in cpu to eval
+            logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
 
-                cur_index = torch.argmax(logits, dim=1)  # (B)
-                pred = []
-                for i in range(cur_index.size()[0]):
-                    pred.append(seen_relid[int(cur_index[i])])
-                pred = torch.tensor(pred)
+            cur_index = torch.argmax(logits, dim=1)  # (B)
+            pred = []
+            for i in range(cur_index.size()[0]):
+                pred.append(seen_relid[int(cur_index[i])])
+            pred = torch.tensor(pred)
 
-                correct = torch.eq(pred, label).sum().item()
-                acc = correct / batch_size
-                corrects += correct
-                total += batch_size
-                sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
-                                .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
-                # sys.stdout.flush()
-            print('')
-            return corrects / total, mean_loss
+            correct = torch.eq(pred, label).sum().item()
+            acc = correct / batch_size
+            corrects += correct
+            total += batch_size
+            sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
+                            .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
+            # sys.stdout.flush()
+        print('')
+        return corrects / total, mean_loss
 
     def _get_sample_text(self, data_path, index):
         sample = {}
