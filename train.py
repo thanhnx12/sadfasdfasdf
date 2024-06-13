@@ -206,9 +206,9 @@ class Manager(object):
                         None
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
-                if not torch.isnan(infoNCE_loss):
+                if not torch.isnan(torch.tensor(infoNCE_loss)):
                     loss = 0.8 * loss + infoNCE_loss
-                if not torch.isnan(loss):
+                if not torch.isnan(torch.tensor(loss)):
                     total_sample += batch_size
                     total_loss += loss
                     print(f'[Test loss]: {loss}')
