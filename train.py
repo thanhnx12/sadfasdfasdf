@@ -14,7 +14,7 @@ from data_loader import get_data_loader_BERT
 from utils import Moment, gen_data
 from encoder import EncodingModel
 import wandb
-
+import math
 
 class Manager(object):
     def __init__(self, config) -> None:
@@ -134,7 +134,7 @@ class Manager(object):
 
                 infoNCE_loss = infoNCE_loss / len(list_labels)
                 wandb.log({'infoNCE_loss': infoNCE_loss, 'loss': loss})
-                if not torch.isnan(infoNCE_loss):
+                if not math.isnan(infoNCE_loss):
                     loss = 0.8 * loss + infoNCE_loss
                 total_loss += loss
                 print(f'[Train loss]: {loss}')
@@ -205,10 +205,10 @@ class Manager(object):
                     except:
                         None
 
-                infoNCE_loss = infoNCE_loss / len(list_labels)
-                if not torch.isnan(torch.tensor(infoNCE_loss)):
+                infoNCE_loss = infoNCE_loss / len(list_labels)  
+                if not math.isnan(infoNCE_loss):
                     loss = 0.8 * loss + infoNCE_loss
-                if not torch.isnan(torch.tensor(loss)):
+                if not torch.isnan(loss):
                     total_sample += batch_size
                     total_loss += loss
                     print(f'[Test loss]: {loss}')
