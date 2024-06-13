@@ -197,12 +197,11 @@ class Manager(object):
                     except:
                         None
 
-                    infoNCE_loss = infoNCE_loss / len(list_labels)
-                    loss = 0.8 * loss + infoNCE_loss
-                    total_loss += loss
+                infoNCE_loss = infoNCE_loss / len(list_labels)
+                loss = 0.8 * loss + infoNCE_loss
+                total_loss += loss
 
-                    print(f'[Test loss]: {loss}')
-                mean_loss = total_loss / len(test_loader)
+                print(f'[Test loss]: {loss}')
 
                 fea = hidden.cpu().data  # place in cpu to eval
                 logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
@@ -217,10 +216,13 @@ class Manager(object):
                 acc = correct / batch_size
                 corrects += correct
                 total += batch_size
+                print('')
                 sys.stdout.write('[EVAL] batch: {0:4} | acc: {1:3.2f}%,  total acc: {2:3.2f}%   ' \
                                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
                 # sys.stdout.flush()
             print('')
+            mean_loss = total_loss / len(test_loader)
+
             return corrects / total, mean_loss
 
     def _get_sample_text(self, data_path, index):
