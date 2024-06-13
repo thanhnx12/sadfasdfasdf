@@ -178,6 +178,7 @@ class Manager(object):
             encoder.eval()
             softmax = nn.Softmax(dim=0)
             total_loss = 0
+            total_sample = 0
             for batch_num, (instance, label, _) in enumerate(test_loader):
                 for k in instance.keys():
                     instance[k] = instance[k].to(self.config.device)
@@ -207,9 +208,10 @@ class Manager(object):
                 infoNCE_loss = infoNCE_loss / len(list_labels)
                 if not torch.isnan(infoNCE_loss):
                     loss = 0.8 * loss + infoNCE_loss
-                total_loss += loss
-
-                print(f'[Test loss]: {loss}')
+                if not torch.isnan(loss):
+                    total_sample += batch_size
+                    total_loss += loss
+                    print(f'[Test loss]: {loss}')
 
                 fea = hidden.cpu().data  # place in cpu to eval
                 logits = -self._edist(fea, seen_proto)  # (B, N) ;N is the number of seen relations
@@ -229,7 +231,7 @@ class Manager(object):
                 #                 .format(batch_num, 100 * acc, 100 * (corrects / total)) + '\r')
                 # sys.stdout.flush()
             print('')
-            mean_loss = total_loss / len(test_loader)
+            mean_loss = total_loss / total_sample
 
             return corrects / total, mean_loss
 
