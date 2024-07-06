@@ -287,6 +287,8 @@ class Manager(object):
             print('his_acc: ', total_acc)
 
         torch.cuda.empty_cache()
+        # save model
+        torch.save(encoder.state_dict(), "./checkpoints/encoder.pth")
         return total_acc_num
 
 
