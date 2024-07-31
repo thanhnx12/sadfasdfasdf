@@ -224,31 +224,40 @@ class Manager(object):
         cur_acc_num, total_acc_num = [], []
         memory_samples = {}
         data_generation = []
+        seen_nota_relations = []
         for step, (training_data, valid_data, test_data, current_relations, \
             historic_test_data, seen_relations) in enumerate(sampler):
       
             # Initialization
             self.moment = Moment(self.config)
 
+            list_current_relations = [x for x in current_relations]
+            current_nota_relations = list_current_relations[len(list_current_relations)//2 : ]
+            seen_nota_relations += current_nota_relations
+
+
             # Train current task
             training_data_initialize = []
             for rel in current_relations:
-                training_data_initialize += training_data[rel]
+                if rel not in current_nota_relations:
+                    training_data_initialize += training_data[rel]
             self.moment.init_moment(encoder, training_data_initialize, is_memory=False)
             self.train_model(encoder, training_data_initialize)
 
             # Select memory samples
             for rel in current_relations:
-                memory_samples[rel], _ = self.select_memory(encoder, training_data[rel])
+                if rel not in current_nota_relations:
+                    memory_samples[rel], _ = self.select_memory(encoder, training_data[rel])
 
             # Data gen
             if self.config.gen == 1:
                 gen_text = []
                 for rel in current_relations:
-                    for sample in memory_samples[rel]:
-                        sample_text = self._get_sample_text(self.config.training_data, sample['index'])
-                        gen_samples = gen_data(self.r2desc, self.rel2id, sample_text, self.config.num_gen, self.config.gpt_temp, self.config.key)
-                        gen_text += gen_samples
+                    if rel not in current_nota_relations:
+                        for sample in memory_samples[rel]:
+                            sample_text = self._get_sample_text(self.config.training_data, sample['index'])
+                            gen_samples = gen_data(self.r2desc, self.rel2id, sample_text, self.config.num_gen, self.config.gpt_temp, self.config.key)
+                            gen_text += gen_samples
                 for sample in gen_text:
                     data_generation.append(sampler.tokenize(sample))
                     
@@ -256,7 +265,8 @@ class Manager(object):
             if step > 0:
                 memory_data_initialize = []
                 for rel in seen_relations:
-                    memory_data_initialize += memory_samples[rel]
+                    if rel not in seen_nota_relations:
+                        memory_data_initialize += memory_samples[rel]
                 memory_data_initialize += data_generation
                 self.moment.init_moment(encoder, memory_data_initialize, is_memory=True) 
                 self.train_model(encoder, memory_data_initialize, is_memory=True)
@@ -264,8 +274,9 @@ class Manager(object):
             # Update proto
             seen_proto = []  
             for rel in seen_relations:
-                proto, _ = self.get_memory_proto(encoder, memory_samples[rel])
-                seen_proto.append(proto)
+                if rel not in seen_nota_relations:
+                    proto, _ = self.get_memory_proto(encoder, memory_samples[rel])
+                    seen_proto.append(proto)
             seen_proto = torch.stack(seen_proto, dim=0)
 
             # Eval current task and history task
@@ -276,7 +287,8 @@ class Manager(object):
                 test_data_initialize_seen += historic_test_data[rel]
             seen_relid = []
             for rel in seen_relations:
-                seen_relid.append(self.rel2id[rel])
+                if rel not in seen_nota_relations:
+                    seen_relid.append(self.rel2id[rel])
             ac1 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_cur)
             ac2 = self.eval_encoder_proto(encoder, seen_proto, seen_relid, test_data_initialize_seen)
             cur_acc_num.append(ac1)
@@ -288,7 +300,6 @@ class Manager(object):
 
         torch.cuda.empty_cache()
         # save model
-        torch.save(encoder.state_dict(), "./checkpoints/encoder.pth")
         return total_acc_num
 
 

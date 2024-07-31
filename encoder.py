@@ -29,7 +29,8 @@ class EncodingModel(nn.Module):
         self.info_nce_fc = nn.Sequential(
             nn.Linear(config.vocab_size , self.embedding_dim),
             nn.ReLU(),
-            nn.Linear(self.embedding_dim, self.embedding_dim)
+            nn.Linear(self.embedding_dim, self.embedding_dim),
+            nn.Tanh()
         ).to(config.device)
 
 
